@@ -14,55 +14,37 @@ def insert_run(window_id, fabric_id, result, note=""):
     finally:
         c.close()
 
-def _dims(row) -> dict:
-    return {
-        "width": row["window_width"] if "window_width" in row.keys() else None,
-        "height": row["window_height"] if "window_height" in row.keys() else None,
-        "fullness": row["window_fullness"] if "window_fullness" in row.keys() else None,
-        "fabric_width": row["fabric_width"] if "fabric_width" in row.keys() else None,
-        "hem_top": row["hem_top"] if "hem_top" in row.keys() else None,
-        "hem_bottom": row["hem_bottom"] if "hem_bottom" in row.keys() else None,
-    }
-
 
 def get_run(run_id: int):
-    from app.services.overlap_open import open_as_whole
-
+    # 读路径只返回写入时的结果快照，不按当前窗/布尺寸或默认值重算
     c = connect()
     try:
         row = c.execute(
-            """SELECT r.*, w.name window_name, f.name fabric_name,
-                   w.width window_width, w.height window_height, w.fullness window_fullness,
-                   f.fabric_width fabric_width, f.hem_top hem_top, f.hem_bottom hem_bottom
+            """SELECT r.*, w.name window_name, f.name fabric_name
             FROM calc_runs r
             LEFT JOIN windows w ON w.id=r.window_id LEFT JOIN fabrics f ON f.id=r.fabric_id
             WHERE r.id=?""", (run_id,)).fetchone()
         if not row:
             return None
         d = dict(row)
-        raw = json.loads(d.pop("result_json"))
-        d["result"] = open_as_whole(raw, _dims(row))
+        d["result"] = json.loads(d.pop("result_json"))
         return d
     finally:
         c.close()
 
 def list_runs(limit=50):
-    from app.services.overlap_open import open_as_whole
-
+    # 列表与详情同源：一律输出固化快照
     c = connect()
     try:
         rows = c.execute(
-            """SELECT r.*, w.name window_name, f.name fabric_name,
-                   w.width window_width, w.height window_height, w.fullness window_fullness,
-                   f.fabric_width fabric_width, f.hem_top hem_top, f.hem_bottom hem_bottom
+            """SELECT r.*, w.name window_name, f.name fabric_name
             FROM calc_runs r
             LEFT JOIN windows w ON w.id=r.window_id LEFT JOIN fabrics f ON f.id=r.fabric_id
             ORDER BY r.id DESC LIMIT ?""", (limit,)).fetchall()
         out = []
         for row in rows:
             d = dict(row)
-            raw = json.loads(d.pop("result_json"))
-            d["result"] = open_as_whole(raw, _dims(row))
+            d["result"] = json.loads(d.pop("result_json"))
             out.append(d)
         return out
     finally:

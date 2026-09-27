@@ -4,6 +4,7 @@ from app import seed
 from app.db import connect
 from app.services import estimate_service
 from app.repositories import history, settings_repo
+from app.routers.settings import SettingBody, put_setting
 
 
 @pytest.fixture()
@@ -73,3 +74,39 @@ def test_saved_run_freezes_style_and_overlap(db):
 
 def test_get_missing_run_is_none(db):
     assert history.get_run(9999) is None
+
+
+def test_list_and_detail_match_saved_snapshot(db):
+    saved = estimate_service.run_estimate(1, 1, save=True, note="",
+                                          open_style="split", overlap=0.25)
+    rid = saved["run_id"]
+    keys = ("open_style", "overlap", "finished_width", "panels", "cut_height", "meters")
+    detail = history.get_run(rid)["result"]
+    row = next(r for r in history.list_runs() if r["id"] == rid)["result"]
+    for k in keys:
+        assert detail[k] == saved[k]
+        assert row[k] == saved[k]
+
+
+def test_snapshot_does_not_drift_after_master_data_changes(db):
+    saved = estimate_service.run_estimate(1, 1, save=True, note="",
+                                          open_style="split", overlap=0.25)
+    rid = saved["run_id"]
+    # 事后改窗宽与门幅：旧编号必须钉住写入时的成品宽 / panels / 米数
+    c = connect()
+    try:
+        c.execute("UPDATE windows SET width=9.9 WHERE id=1")
+        c.execute("UPDATE fabrics SET fabric_width=0.5 WHERE id=1")
+        c.commit()
+    finally:
+        c.close()
+    got = history.get_run(rid)["result"]
+    for k in ("open_style", "overlap", "finished_width", "panels", "cut_height", "meters"):
+        assert got[k] == saved[k]
+
+
+def test_negative_default_overlap_setting_rejected(db):
+    with pytest.raises(HTTPException) as ei:
+        put_setting(SettingBody(key="default_overlap", value="-0.1"))
+    assert ei.value.status_code == 422
+    assert settings_repo.get_all().get("default_overlap") == "0.10"

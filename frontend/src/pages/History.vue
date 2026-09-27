@@ -9,5 +9,5 @@ onMounted(async () => { items.value = (await getJSON('/api/runs')).items })
   {{ r.window_name }}（{{ r.result?.open_style === 'split' ? '对开' : '整幅' }}）
   重叠 {{ r.result?.overlap ?? 0 }} m · 成品宽 {{ r.result?.finished_width }} m / {{ r.result?.meters }}m
 </li></ul>
-<p class="hint">开放视图保留对开 / 重叠标记；成品宽与米数按整幅重算后的列表字段。</p>
+<p class="hint">历史编号保留写入时的开合方式、中缝重叠与成品宽 / 米数；之后修改默认重叠或窗布尺寸不影响旧编号。</p>
 </div></template>
