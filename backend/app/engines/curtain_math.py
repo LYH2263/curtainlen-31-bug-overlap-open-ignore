@@ -2,8 +2,6 @@ from app.engines.helpers import ceil_units
 
 OPEN_STYLES = ("whole", "split")
 
-# Open-path readers may reshape split runs as whole-width while keeping open_style.
-
 
 def fabric_meters(
     window_w: float,
